@@ -15,20 +15,19 @@ func main() {
 	configPath := flag.String("c", "../config.yml", "配置文件路径")
 	flag.Parse()
 
-	// 根据命令行参数读取配置文件, 其他变量的初始化依赖于配置文件对象
 	conf := g.ReadConfig(*configPath)
 
 	_ = ginblog.InitLogger(conf)
 	db := ginblog.InitDatabase(conf)
 	rdb := ginblog.InitRedis(conf)
 
-	// 初始化 gin 服务
+	handle.StartViewCountSyncJob(rdb, db)
+
 	gin.SetMode(conf.Server.Mode)
 	r := gin.New()
 	r.SetTrustedProxies([]string{"*"})
-	// 开发模式使用 gin 自带的日志和恢复中间件, 生产模式使用自定义的中间件
 	if conf.Server.Mode == "debug" {
-		r.Use(gin.Logger(), gin.Recovery()) // gin 自带的日志和恢复中间件, 挺好用的
+		r.Use(gin.Logger(), gin.Recovery())
 	} else {
 		r.Use(middleware.Recovery(true), middleware.Logger())
 	}
@@ -38,7 +37,6 @@ func main() {
 	r.Use(middleware.WithCookieStore(conf.Session.Name, conf.Session.Salt))
 	ginblog.RegisterHandlers(r)
 
-	// 使用本地文件上传, 需要静态文件服务, 使用七牛云不需要
 	if conf.Upload.OssType == "local" {
 		r.Static(conf.Upload.Path, conf.Upload.StorePath)
 	}

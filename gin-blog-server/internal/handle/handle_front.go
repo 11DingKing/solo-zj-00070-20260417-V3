@@ -286,10 +286,25 @@ func (*Front) GetArticleList(c *gin.Context) {
 		return
 	}
 
-	list, _, err := model.GetBlogArticleList(GetDB(c), query.Page, query.Size, query.CategoryId, query.TagId, query.Keyword)
+	db := GetDB(c)
+	rdb := GetRDB(c)
+
+	list, _, err := model.GetBlogArticleList(db, query.Page, query.Size, query.CategoryId, query.TagId, query.Keyword)
 	if err != nil {
 		ReturnError(c, g.ErrDbOp, err)
 		return
+	}
+
+	articleIds := make([]int, 0, len(list))
+	for _, article := range list {
+		articleIds = append(articleIds, article.ID)
+	}
+
+	viewCountService := GetViewCountService(rdb, db)
+	redisViewCounts := viewCountService.GetBatchViewCount(rctx, articleIds)
+
+	for i := range list {
+		list[i].ViewCount += int(redisViewCounts[list[i].ID])
 	}
 
 	ReturnSuccess(c, list)
@@ -329,12 +344,13 @@ func (*Front) GetArticleInfo(c *gin.Context) {
 		return
 	}
 
-	// 更新文章浏览量 TODO: 删除文章时删除其浏览量
-	// updateArticleViewCount(c, id)
+	ipAddress := utils.IP.GetIpAddress(c)
+	viewCountService := GetViewCountService(rdb, db)
 
-	// TODO: 更新访问量
-	// * 目前请求一次就会增加访问量, 即刷新可以刷访问量
-	rdb.ZIncrBy(rctx, g.ARTICLE_VIEW_COUNT, 1, strconv.Itoa(id))
+	shouldSync, _ := viewCountService.IncrementViewCount(rctx, id, ipAddress)
+	if shouldSync {
+		go viewCountService.SyncToDatabase(rctx)
+	}
 
 	// 上一篇文章
 	article.LastArticle, err = model.GetLastArticle(db, id)
@@ -350,8 +366,9 @@ func (*Front) GetArticleInfo(c *gin.Context) {
 		return
 	}
 
-	// 点赞量, 浏览量
-	article.ViewCount = int64(rdb.ZScore(rctx, g.ARTICLE_VIEW_COUNT, strconv.Itoa(id)).Val())
+	redisViewCount := viewCountService.GetViewCount(rctx, id)
+	article.ViewCount = int64(val.ViewCount) + redisViewCount
+
 	likeCount, _ := strconv.Atoi(rdb.HGet(rctx, g.ARTICLE_LIKE_COUNT, strconv.Itoa(id)).Val())
 	article.LikeCount = int64(likeCount)
 

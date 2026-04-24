@@ -143,16 +143,17 @@ func (*Article) GetList(c *gin.Context) {
 	if err != nil || list == nil{
 		ReturnError(c, g.ErrDbOp, err)
 		return
-	} 
+	}
 
 	likeCountMap := rdb.HGetAll(rctx, g.ARTICLE_LIKE_COUNT).Val()
-	viewCountZ := rdb.ZRangeWithScores(rctx, g.ARTICLE_VIEW_COUNT, 0, -1).Val()
 
-	viewCountMap := make(map[int]int)
-	for _, article := range viewCountZ {
-		id, _ := strconv.Atoi(article.Member.(string))
-		viewCountMap[id] = int(article.Score)
+	articleIds := make([]int, 0, len(list))
+	for _, article := range list {
+		articleIds = append(articleIds, article.ID)
 	}
+
+	viewCountService := GetViewCountService(rdb, db)
+	redisViewCounts := viewCountService.GetBatchViewCount(rctx, articleIds)
 
 	data := make([]ArticleVO, 0)
 	for _, article := range list {
@@ -160,7 +161,7 @@ func (*Article) GetList(c *gin.Context) {
 		data = append(data, ArticleVO{
 			Article:   article,
 			LikeCount: likeCount,
-			ViewCount: viewCountMap[article.ID],
+			ViewCount: article.ViewCount + int(redisViewCounts[article.ID]),
 		})
 	}
 

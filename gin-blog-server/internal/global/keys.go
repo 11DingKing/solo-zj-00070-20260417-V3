@@ -21,6 +21,10 @@ const (
 
 	PAGE   = "page"   // 页面封面
 	CONFIG = "config" // 博客配置
+
+	VIEW_COUNT_ARTICLE_PREFIX = "view_count:article:"      // 文章阅读量计数前缀
+	VIEW_COUNT_IP_PREFIX      = "view_count:ip:"           // IP 防刷前缀
+	VIEW_COUNT_SYNC_KEY       = "view_count:sync_articles" // 需要同步的文章 ID 集合
 )
 
 // Gin Context Key | Session Key

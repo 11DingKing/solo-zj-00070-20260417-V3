@@ -33,6 +33,7 @@ type Article struct {
 	IsTop       bool   `json:"is_top"`
 	IsDelete    bool   `json:"is_delete"`
 	OriginalUrl string `json:"original_url"`
+	ViewCount   int    `gorm:"type:int;default:0;comment:阅读量" json:"view_count"`
 
 	CategoryId int `json:"category_id"`
 	UserId     int `json:"-"` // user_auth_id
