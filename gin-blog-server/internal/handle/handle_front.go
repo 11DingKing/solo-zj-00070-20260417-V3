@@ -301,10 +301,10 @@ func (*Front) GetArticleList(c *gin.Context) {
 	}
 
 	viewCountService := GetViewCountService(rdb, db)
-	redisViewCounts := viewCountService.GetBatchViewCount(rctx, articleIds)
+	viewCounts := viewCountService.GetBatchViewCount(rctx, articleIds)
 
 	for i := range list {
-		list[i].ViewCount += int(redisViewCounts[list[i].ID])
+		list[i].ViewCount = int(viewCounts[list[i].ID])
 	}
 
 	ReturnSuccess(c, list)
@@ -367,7 +367,7 @@ func (*Front) GetArticleInfo(c *gin.Context) {
 	}
 
 	redisViewCount := viewCountService.GetViewCount(rctx, id)
-	article.ViewCount = int64(val.ViewCount) + redisViewCount
+	article.ViewCount = redisViewCount
 
 	likeCount, _ := strconv.Atoi(rdb.HGet(rctx, g.ARTICLE_LIKE_COUNT, strconv.Itoa(id)).Val())
 	article.LikeCount = int64(likeCount)

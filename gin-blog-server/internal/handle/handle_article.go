@@ -153,7 +153,7 @@ func (*Article) GetList(c *gin.Context) {
 	}
 
 	viewCountService := GetViewCountService(rdb, db)
-	redisViewCounts := viewCountService.GetBatchViewCount(rctx, articleIds)
+	viewCounts := viewCountService.GetBatchViewCount(rctx, articleIds)
 
 	data := make([]ArticleVO, 0)
 	for _, article := range list {
@@ -161,7 +161,7 @@ func (*Article) GetList(c *gin.Context) {
 		data = append(data, ArticleVO{
 			Article:   article,
 			LikeCount: likeCount,
-			ViewCount: article.ViewCount + int(redisViewCounts[article.ID]),
+			ViewCount: int(viewCounts[article.ID]),
 		})
 	}
 
@@ -182,11 +182,17 @@ func (*Article) GetDetail(c *gin.Context) {
 		return
 	}
 
-	article, err := model.GetArticle(GetDB(c), id)
+	db := GetDB(c)
+	rdb := GetRDB(c)
+
+	article, err := model.GetArticle(db, id)
 	if err != nil {
 		ReturnError(c, g.ErrDbOp, err)
 		return
 	}
+
+	viewCountService := GetViewCountService(rdb, db)
+	article.ViewCount = int(viewCountService.GetViewCount(rctx, id))
 
 	ReturnSuccess(c, article)
 }
